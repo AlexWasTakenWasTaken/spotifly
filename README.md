@@ -1,6 +1,6 @@
 # Spotifly
 ![image](https://github.com/user-attachments/assets/17ee7f2b-98bb-4072-82c5-137a79394809)
-![image](https://github.com/user-attachments/assets/a7c56812-c104-457a-ba5a-e757c8728751)
+https://github.com/AlexWasTakenWasTaken/spotifly/blob/main/spotifly-demo-gif.gif
 
 <h2>Overview</h2>
   <p>
