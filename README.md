@@ -65,8 +65,3 @@ cd spotifly</code></pre>
   <p>
     Spotifly is released under the <strong>MIT License</strong>. See the <a href="LICENSE">LICENSE</a> file for more details.
   </p>
-  
-  <hr>
-  <p>
-    <em>Feel free to modify this README to better suit your project's evolving features and documentation needs. Enjoy using Spotifly!</em>
-  </p>
