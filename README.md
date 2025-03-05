@@ -1,6 +1,6 @@
 # Spotifly
 ![image](https://github.com/user-attachments/assets/17ee7f2b-98bb-4072-82c5-137a79394809)
-[![Video Title](https://img.youtube.com/vi/G9GsQCj2kB8/0.jpg)](https://www.youtube.com/watch?v=G9GsQCj2kB8)
+![image](https://github.com/user-attachments/assets/a7c56812-c104-457a-ba5a-e757c8728751)
 
 <h2>Overview</h2>
   <p>
