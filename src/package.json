@@ -1,0 +1,22 @@
+{
+    "name": "spotifly",
+    "version": "1.0.0",
+    "description": "A Spotify overlay for Windows",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron ."
+    },
+    "dependencies": {
+        "node-fetch": "^2.7.0"
+    },
+    "devDependencies": {
+        "electron": "^25.0.0"
+    },
+    "keywords": [
+        "spotify",
+        "overlay",
+        "spotifly"
+    ],
+    "author": "Alex Tan",
+    "license": "MIT"
+}
