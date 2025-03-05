@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spotify Overlay</title>
+    <style>
+      /* Hide scrollbars completely across all browsers */
+      html, body {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE and Edge */
+      }
+      
+      /* WebKit/Chromium browsers */
+      ::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+        background: transparent;
+      }
+    
+      /* Basic styling for the overlay */
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        font-family: Arial, sans-serif;
+        color: #fff;
+        display: block;
+        height: fit-content; /* Use fit-content to size exactly to content */
+        overflow: hidden; /* Changed from visible to hidden to prevent scrollbars */
+        -webkit-app-region: none; /* Remove draggable from body */
+        position: static; /* Ensure body doesn't capture events */
+        pointer-events: none; /* Make body completely pass-through for clicks */
+        user-select: none; /* Prevent text selection */
+      }
+      html {
+        background: transparent;
+        overflow: hidden; /* Changed from visible to hidden to prevent scrollbars */
+        height: fit-content;
+        pointer-events: none; /* Make HTML element pass-through for clicks */
+      }
+      .overlay-container {
+        background: rgba(0, 0, 0, 0.85);
+        padding: 14px; /* Reduced from 20px */
+        border-radius: 8px;
+        text-align: center;
+        width: 340px; /* Reduced from 350px */
+        display: flex;
+        flex-direction: column;
+        gap: 4px; /* Reduced from 6px */
+        position: relative;
+        margin: 0 auto;
+        -webkit-app-region: drag; /* Make only container draggable */
+        overflow: visible;
+        box-sizing: border-box; /* Include padding in width calculation */
+        pointer-events: auto; /* Re-enable pointer events for the container */
+        user-select: none; /* Prevent text selection */
+      }
+      .now-playing {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding-bottom: 6px; /* Reduced from 8px */
+        border-bottom: none;
+      }
+      .album-art {
+        width: 95px;
+        height: 95px;
+        border-radius: 5px;
+        object-fit: cover;
+      }
+      .track-info {
+        flex: 1;
+        text-align: left;
+        min-height: 50px; /* Add min-height to ensure consistent layout */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      #track-title {
+        font-size: 16px;
+        font-weight: bold;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 190px; /* Reduced by 20px to ensure more consistent layout */
+      }
+      #artist-name {
+        font-size: 12px; /* Reduced from 14px */
+        opacity: 0.8;
+        margin: 3px 0; /* Reduced from 5px */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 190px; /* Reduced by 20px to ensure more consistent layout */
+      }
+      .controls {
+        pointer-events: auto; /* Ensure controls are clickable */
+        margin-top: 3px; /* Reduced from 6px */
+        -webkit-app-region: no-drag;
+        display: flex;
+        justify-content: center;
+        gap: 10px; /* Reduced from 12px */
+        align-items: center;
+      }
+      .controls button {
+        background: rgba(30, 215, 96, 0.9);
+        border: none;
+        color: black;
+        width: 26px; /* Reduced from 30px */
+        height: 26px; /* Reduced from 30px */
+        border-radius: 40%;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px; /* Reduced from 14px */
+        padding: 0;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+      
+      /* Ensure consistent icon sizing and positioning */
+      .controls button svg {
+        width: 12px; /* Reduced from 14px */
+        height: 12px; /* Reduced from 14px */
+        position: relative;
+        top: 0;
+        left: 0;
+      }
+      
+      .controls button:hover {
+        background: #1ed760;
+        transform: scale(1.1);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+      }
+      .controls button:active {
+        transform: scale(0.95);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+      .controls button[id="shuffle"],
+      .controls button[id="repeat"] {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        font-size: 14px;
+      }
+      .controls button[id="shuffle"]:hover,
+      .controls button[id="repeat"]:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .controls button[id="shuffle"].active,
+      .controls button[id="repeat"].active {
+        background: rgba(30, 215, 96, 0.9);
+        color: black;
+      }
+      .queue-section, .history-section {
+        text-align: left;
+        position: relative;
+      }
+      /* Queue section - true downward-only expansion */
+      .queue-section {
+        z-index: 100; /* Higher z-index to show above other elements */
+        position: relative;
+      }
+      
+      /* Add styling for expanded state */
+      .queue-section.expanded .track-item,
+      .history-section.expanded .track-item {
+        display: flex !important; /* Force display with higher specificity */
+      }
+      
+      /* Show all tracks when section is actively expanded */
+      .queue-section.expanded .track-list .track-item:nth-child(n+2):nth-child(-n+4),
+      .history-section.expanded .track-list .track-item:nth-child(n+2):nth-child(-n+4) {
+        display: flex !important; /* Force display of items 2-4 */
+      }
+      
+      /* Container for the title and first track */
+      .queue-section .section-title {
+        margin-bottom: 5px; /* Reduced from 8px */
+      }
+      
+      /* Track list container */
+      .queue-section .track-list-container {
+        position: relative;
+        background: transparent;
+        border-radius: 6px;
+        margin-bottom: 5px;
+        z-index: 10;
+        height: auto;
+        overflow: visible; /* Ensure consistent overflow handling */
+      }
+      
+      /* Style for track list */
+      .queue-section .track-list {
+        position: relative;
+        z-index: 20;
+        overflow: visible; /* Prevent scrollbars */
+      }
+      
+      /* All track items should have flex display by default */
+      .track-item {
+        padding: 6px; /* Reduced from 8px */
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.15s ease; /* Faster transition for more responsive feel */
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 3px; /* Reduced from 4px */
+        background: rgba(0, 0, 0, 0.15); /* Match exact background opacity */
+      }
+      
+      /* Show/hide tracks in the queue section */
+      .queue-section .track-list .track-item:first-child {
+        display: flex; /* Always show first track with flex */
+      }
+      
+      .queue-section .track-list .track-item:nth-child(n+2) {
+        display: none; /* Hide by default */
+        margin-top: 4px;
+      }
+      
+      /* Only show tracks when expanded class is present */
+      .queue-section.expanded .track-list .track-item:nth-child(n+2):nth-child(-n+4) {
+        display: flex !important; /* Force display only when expanded */
+      }
+      
+      /* Limit to showing 4 songs max (changed from 5) */
+      .queue-section .track-list .track-item:nth-child(n+5) {
+        display: none !important; /* Never show more than 4 songs */
+      }
+      
+      /* Hover indicator for queue - REMOVED */
+      .queue-section::after {
+        display: none; /* Remove the hover indicator text */
+      }
+      
+      .queue-section:hover::after {
+        opacity: 0;
+      }
+      
+      /* Basic track list styles */
+      .track-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        -webkit-app-region: no-drag;
+        pointer-events: auto; /* Ensure tracks are clickable */
+      }
+      
+      /* History section with matching styling */
+      .history-section {
+        position: relative;
+        z-index: 90; /* Set z-index for proper layering */
+      }
+      
+      .history-section .section-title {
+        margin-bottom: 8px;
+      }
+      
+      /* Make history section expandable like queue */
+      .history-section .track-list {
+        max-height: none;
+        overflow: visible; /* Match queue section overflow settings */
+        background: transparent;
+        border-radius: 6px;
+        padding: 0;
+        position: relative;
+        z-index: 20;
+      }
+      
+      /* Show only FIRST track in history by default */
+      .history-section .track-list .track-item:first-child {
+        display: flex; /* Always show first track with flex */
+      }
+      
+      .history-section .track-list .track-item:nth-child(n+2) {
+        display: none; /* Hide all but first track */
+        margin-top: 4px;
+      }
+      
+      /* Only show tracks when expanded class is present */
+      .history-section.expanded .track-list .track-item:nth-child(n+2):nth-child(-n+4) {
+        display: flex !important; /* Force display only when expanded */
+      }
+      
+      /* Limit to showing 4 songs max (changed from 5) */
+      .history-section .track-list .track-item:nth-child(n+5) {
+        display: none !important; /* Never show more than 4 songs */
+      }
+      
+      /* Add hover indicator for history section - REMOVED */
+      .history-section::after {
+        display: none; /* Remove the hover indicator text */
+      }
+      
+      .history-section:hover::after {
+        opacity: 0;
+      }
+      
+      /* Remove gradient on recently played */
+      .history-section .gradient-fade {
+        display: none;
+      }
+      
+      /* Make hover effect match the background */
+      .track-item:hover {
+        background: rgba(30, 215, 96, 0.15);
+        transition: background-color 0.1s ease-in;
+      }
+      
+      /* Add a specific hover class that can be applied via JavaScript */
+      .track-item-hover {
+        background: rgba(30, 215, 96, 0.15) !important;
+      }
+      
+      /* Add style for active/pressed state */
+      .track-item:active {
+        background: rgba(30, 215, 96, 0.25);
+      }
+      
+      /* Hover progress line styling */
+      .hover-progress-line {
+        height: 2px;
+        width: 0;
+        background-color: #1ed760;
+        position: absolute;
+        left: 0;
+        bottom: -2px;
+        transition: width 0.3s ease-out;
+        opacity: 0;
+        border-radius: 2px;
+      }
+      
+      .queue-section:hover .hover-progress-line,
+      .history-section:hover .hover-progress-line {
+        opacity: 1;
+      }
+      
+      .hover-progress-line.active {
+        width: 100%;
+        transition-duration: 0.3s; /* Match the HOVER_DELAY in JS */
+      }
+      
+      /* Section title container to position the progress line */
+      .section-title-container {
+        position: relative;
+        margin-bottom: 5px; /* Reduced from 8px */
+        display: inline-block; /* Contain the title and progress line */
+      }
+      
+      .section-title {
+        margin: 0;
+        opacity: 0.8;
+        font-size: 13px; /* Reduced from 14px */
+        position: relative;
+      }
+      
+      /* Track item image container */
+      .track-item-img-container {
+        position: relative;
+        width: 38px; /* Increased from 34px */
+        height: 38px; /* Increased from 34px */
+        flex-shrink: 0; /* Prevent from shrinking */
+      }
+      .track-item img {
+        width: 38px; /* Increased from 34px */
+        height: 38px; /* Increased from 34px */
+        border-radius: 3px;
+      }
+      /* Remove play overlay */
+      .play-overlay {
+        display: none; /* Hide the play overlay completely */
+      }
+      .track-item-info {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .track-item-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0;
+        max-width: 230px; /* Reduced by 20px to ensure more consistent layout */
+      }
+      .track-item-artist {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        opacity: 0.7;
+        font-size: 12px;
+        margin: 2px 0 0 0;
+        max-width: 230px; /* Reduced by 20px to ensure more consistent layout */
+      }
+      .currently-playing {
+        background: rgba(30, 215, 96, 0.1);
+        border-left: 3px solid #1ed760;
+      }
+      .now-playing-badge {
+        font-size: 10px;
+        background: #1ed760;
+        color: black;
+        padding: 2px 6px;
+        border-radius: 10px;
+        margin-top: 4px;
+        display: inline-block;
+      }
+      /* Make history transitions smoother */
+      .history-section .track-item {
+        transition: all 0.15s ease-in; /* Faster transition for more responsive feel */
+      }
+      
+      /* Playback progress bar styles */
+      .playback-container {
+        pointer-events: auto; /* Ensure progress bar is clickable */
+        margin-top: 4px; /* Reduced from 6px */
+        margin-bottom: 5px; /* Reduced from 8px */
+        width: 100%;
+        background: rgba(255, 255, 255, 0.2);
+        height: 4px;
+        border-radius: 2px;
+        overflow: hidden;
+        cursor: pointer;
+      }
+      
+      #playback-bar {
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+      
+      #playback-progress {
+        background: #1ed760;
+        height: 100%;
+        width: 0%;
+        transition: width 0.1s linear;
+      }
+      
+      /* Time display styling */
+      .time-display-container {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px; /* Reduced from 11px */
+        margin-top: 1px; /* Reduced from 2px */
+        margin-bottom: 2px; /* Reduced from 5px */
+        color: rgba(255, 255, 255, 0.7);
+        padding: 0 2px;
+      }
+      
+      #current-time, #total-time {
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="overlay-container">
+      <div class="now-playing">
+        <img id="current-album-art" class="album-art" src="https://via.placeholder.com/80" alt="Album Art">
+        <div class="track-info">
+          <p id="track-title">Connecting to Spotify...</p>
+          <p id="artist-name"></p>
+          
+          <!-- Add playback bar container -->
+          <div class="playback-container">
+            <div id="playback-bar">
+              <div id="playback-progress"></div>
+            </div>
+          </div>
+          
+          <!-- Add time displays -->
+          <div class="time-display-container">
+            <span id="current-time">0:00</span>
+            <span id="total-time">0:00</span>
+          </div>
+          
+          <div class="controls">
+            <button id="shuffle">
+              <svg width="16" height="16" viewBox="0 0 800 800" fill="none" stroke="currentColor" stroke-width="24">
+                <path d="M 633.33,433.33
+                  C 633.33,433.33 733.33,533.33 733.33,533.33
+                    733.33,533.33 633.33,633.33 633.33,633.33M 633.33,133.33
+                  C 633.33,133.33 733.33,233.33 733.33,233.33
+                    733.33,233.33 633.33,333.33 633.33,333.33M 700.00,233.33
+                  C 700.00,233.33 592.36,233.33 592.36,233.33
+                    527.21,233.33 466.15,272.80 428.70,339.10
+                    428.70,339.10 359.91,460.90 359.91,460.90
+                    322.46,527.20 261.40,566.67 196.25,566.67
+                    196.25,566.67 100.00,566.67 100.00,566.67M 700.00,534.66
+                  C 700.00,534.66 592.36,534.66 592.36,534.66
+                    527.21,534.66 466.15,498.99 428.70,439.05
+                    428.70,439.05 359.91,328.94 359.91,328.94
+                    322.46,269.01 261.40,233.33 196.25,233.33
+                    196.25,233.33 100.00,233.33 100.00,233.33"/>
+              </svg>
+            </button>
+            <button id="prev">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13 2.5L5 8l8 5.5z M3 2.5h2v11H3z"/>
+              </svg>
+            </button>
+            <button id="play-pause">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" id="play-icon">
+                <path d="M4 2l10 6-10 6V2z"/>
+              </svg>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" id="pause-icon" style="display:none;">
+                <path d="M3 2h4v12H3zm6 0h4v12H9z"/>
+              </svg>
+            </button>
+            <button id="next">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M3 2.5L11 8l-8 5.5z M11 2.5h2v11h-2z"/>
+              </svg>
+            </button>
+            <button id="repeat">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M5.5 5H10v1.5l3.5-2-3.5-2V4H5.5C3 4 1 6 1 8.5c0 .6.1 1.2.4 1.8l.9-.5C2.1 9.4 2 9 2 8.5 2 6.6 3.6 5 5.5 5zm9.1 1.7l-.9.5c.2.4.3.8.3 1.3 0 1.9-1.6 3.5-3.5 3.5H6v-1.5l-3.5 2 3.5 2V13h4.5C13 13 15 11 15 8.5c0-.6-.1-1.2-.4-1.8z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="queue-section">
+        <div class="section-title-container">
+          <h2 class="section-title">Up Next</h2>
+          <div class="hover-progress-line" id="queue-progress-line"></div>
+        </div>
+        <div class="track-list-container">
+          <ul id="queue-list" class="track-list">
+            <!-- Queue items will be inserted here -->
+          </ul>
+        </div>
+      </div>
+
+      <!-- Recently Played section removed -->
+    </div>
+    <script src="renderer.js"></script>
+    <script>
+      // Initialize window size once DOM is fully loaded
+      document.addEventListener('DOMContentLoaded', () => {
+        // Give a little time for everything to render
+        setTimeout(() => {
+          // Get overlay container and calculate height
+          const overlayContainer = document.querySelector('.overlay-container');
+          if (overlayContainer && window.spotify && window.spotify.updateWindowSize) {
+            const width = overlayContainer.offsetWidth;
+            const height = overlayContainer.offsetHeight + 10; // Small buffer
+            window.spotify.updateWindowSize({ width, height });
+            console.log('Initial window resize to:', width, height);
+          }
+        }, 250); // Reduced from 500ms to 250ms to match the refresh rate
+      });
+      
+      // We removed the redundant mouseenter/mouseleave event listeners
+      // since we implemented better ones in renderer.js using the
+      // preResizeForExpansion function
+    </script>
+  </body>
+</html>
